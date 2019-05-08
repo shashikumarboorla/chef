@@ -1,0 +1,87 @@
+[x249796@xlddept04 scripts]$ cat nexus_update_latest.pl
+#!/opt/deploytools/perl/bin/perl -w
+
+# Chessy script to update the latest configuration files  in the proxy
+
+use Getopt::Long;
+use Config::Properties;
+use JSON;
+use Data::Dumper;
+use Archive::Tar;
+
+
+# Options
+my ($USAGE,$category,$environment,$help);
+
+# Main vars
+my ($tmpVersion,$version,%repoInfo,$url,$xmlurl);
+
+
+#Initialize
+%repoInfo= (
+             baseurl=>'https://repositories.swacorp.com:8443/nexus/content/repositories/releases/com/swacorp/depmgmt/rundeck',
+             proxyurl=>'http://xlddep01.swacorp.com:8081/nexus/content/repositories/SWAReleases/com/swacorp/depmgmt/rundeck'
+           );
+
+
+# Options function
+GetOptions(
+           "category=s" => \$category,
+           "environment=s" => \$environment,
+           "help|h"        => \$help);
+
+$environment="$environment"?"$environment":"";
+$environment=lc($environment);
+
+$category="$category"?"$category":"";
+$category=lc($category);
+$help="";
+
+if ( $environment eq '' ) { Usage(); }
+
+
+$xmlurl="$repoInfo{baseurl}/$category-$environment/maven-metadata.xml";
+$version=`/opt/deploytools/jenkins/scripts/get_revision.pl -s -u $xmlurl`;
+
+$url="$repoInfo{proxyurl}/$category-$environment/$version";
+$artifact="$category-$environment-$version.tgz";
+
+print "URL : [$url/$artifact]\n";
+system ("mkdir -p /tmp/relmgmt/$$/$category");
+
+print "wget -O /tmp/relmgmt/$$/$artifact --no-check-certificate $url/$artifact\n -e use_proxy=no";
+system("wget -O /tmp/relmgmt/$$/$category/$artifact --no-check-certificate $url/$artifact -e use_proxy=no");
+
+print "INFO: Cleaning up /tmp/relmgmt/$$ and removing any downloaded artifacts\n";
+system ("cd /tmp/relmgmt/$$/$category;rm -rf /tmp/relmgmt/$$ ");
+
+#print "INFO: Removing /tmp/relmgmt/$$\n";
+#system ("rmdir /tmp/relmgmt/$$ ");
+
+#print "artifact: [$artifact]\n";
+#print "version: [$version]\n";
+#print "xmlurl: [$xmlurl]\n";
+
+sub Usage
+{
+        $USAGE = <<"USAGE";
+Usage:
+
+Examples:
+        $0 -e dev -c configfiles
+        $0 --help
+
+Options:
+
+        -c --category\t [configfiles|scripts]
+        -e --environment\t [dev|qa|prod]
+        -h --help\t to print usage
+
+USAGE
+
+        print $USAGE;
+        exit 1;
+}
+
+[x249796@xlddept04 scripts]$
+
